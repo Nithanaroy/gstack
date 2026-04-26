@@ -1,10 +1,6 @@
 ---
 name: plan-eng-review
-description: |
-  Eng manager-mode plan review. Lock in the execution plan — architecture,
-  data flow, edge cases, test coverage, performance. Walks through issues
-  interactively with opinionated recommendations. Use when asked to
-  "review the architecture", "engineering review", or "lock in the plan".
+description: Engineering plan review — architecture, data flow, edge cases, test coverage, and performance with opinionated recommendations.
 ---
 
 # Engineering Plan Review

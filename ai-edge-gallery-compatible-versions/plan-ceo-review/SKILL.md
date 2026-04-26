@@ -1,12 +1,6 @@
 ---
 name: plan-ceo-review
-description: |
-  CEO/founder-mode plan review. Rethink the problem, find the 10-star product,
-  challenge premises, expand scope when it creates a better product. Four modes:
-  SCOPE EXPANSION (dream big), SELECTIVE EXPANSION (hold scope + cherry-pick),
-  HOLD SCOPE (maximum rigor), SCOPE REDUCTION (strip to essentials).
-  Use when asked to "think bigger", "expand scope", "strategy review", or
-  "rethink this".
+description: CEO-mode plan review — rethink the problem, challenge premises, find the 10-star product. Four modes from dream big to strip to essentials.
 ---
 
 # CEO Plan Review
