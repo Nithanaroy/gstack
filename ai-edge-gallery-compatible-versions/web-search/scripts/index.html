@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Web Search</title>
+</head>
+<body>
+  <script>
+    // Web Search via DuckDuckGo Instant Answer API
+    // Input: search query string
+    // Output: summarized search results
+
+    async function search(query) {
+      if (!query || query.trim() === '') {
+        return JSON.stringify({ error: 'No search query provided' });
+      }
+
+      const encoded = encodeURIComponent(query.trim());
+
+      try {
+        // DuckDuckGo Instant Answer API (no API key required)
+        const ddgUrl = `https://api.duckduckgo.com/?q=${encoded}&format=json&no_html=1&skip_disambig=1`;
+        const ddgResponse = await fetch(ddgUrl);
+        const ddgData = await ddgResponse.json();
+
+        const results = [];
+
+        // Abstract (main answer)
+        if (ddgData.Abstract) {
+          results.push({
+            title: ddgData.Heading || 'Summary',
+            text: ddgData.Abstract,
+            source: ddgData.AbstractSource || 'DuckDuckGo',
+            url: ddgData.AbstractURL || ''
+          });
+        }
+
+        // Related topics
+        if (ddgData.RelatedTopics && ddgData.RelatedTopics.length > 0) {
+          for (const topic of ddgData.RelatedTopics.slice(0, 5)) {
+            if (topic.Text) {
+              results.push({
+                title: topic.FirstURL ? topic.FirstURL.split('/').pop().replace(/_/g, ' ') : 'Related',
+                text: topic.Text,
+                url: topic.FirstURL || ''
+              });
+            }
+            // Handle sub-topics (grouped results)
+            if (topic.Topics) {
+              for (const sub of topic.Topics.slice(0, 3)) {
+                if (sub.Text) {
+                  results.push({
+                    title: sub.FirstURL ? sub.FirstURL.split('/').pop().replace(/_/g, ' ') : 'Related',
+                    text: sub.Text,
+                    url: sub.FirstURL || ''
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        // Definition
+        if (ddgData.Definition) {
+          results.push({
+            title: 'Definition',
+            text: ddgData.Definition,
+            source: ddgData.DefinitionSource || '',
+            url: ddgData.DefinitionURL || ''
+          });
+        }
+
+        // Answer (for factual queries)
+        if (ddgData.Answer) {
+          results.push({
+            title: 'Answer',
+            text: ddgData.Answer,
+            source: 'DuckDuckGo'
+          });
+        }
+
+        if (results.length === 0) {
+          // Try Wikipedia as fallback
+          const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encoded}`;
+          try {
+            const wikiResponse = await fetch(wikiUrl);
+            if (wikiResponse.ok) {
+              const wikiData = await wikiResponse.json();
+              if (wikiData.extract) {
+                results.push({
+                  title: wikiData.title || query,
+                  text: wikiData.extract,
+                  source: 'Wikipedia',
+                  url: wikiData.content_urls?.desktop?.page || ''
+                });
+              }
+            }
+          } catch (e) {
+            // Wikipedia fallback failed silently
+          }
+        }
+
+        if (results.length === 0) {
+          return JSON.stringify({
+            query: query,
+            message: 'No results found. Try rephrasing the query or using more specific terms.'
+          });
+        }
+
+        return JSON.stringify({
+          query: query,
+          result_count: results.length,
+          results: results
+        });
+
+      } catch (error) {
+        return JSON.stringify({
+          error: `Search failed: ${error.message}`,
+          query: query
+        });
+      }
+    }
+
+    // The input variable is provided by the run_js runtime
+    if (typeof input !== 'undefined') {
+      search(input).then(result => {
+        document.body.innerText = result;
+      });
+    }
+  </script>
+</body>
+</html>
