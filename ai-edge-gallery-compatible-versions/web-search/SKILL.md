@@ -1,40 +1,18 @@
 ---
 name: web-search
-description: |
-  Search the web using DuckDuckGo. Returns summarized results for landscape
-  awareness, competitive research, and search-before-building checks.
-  Used by other skills when they need to understand what the world thinks
-  about a problem space.
+description: Search the web for information on any topic using DuckDuckGo and Wikipedia.
 ---
 
 # Web Search
 
-Search the web for information relevant to the current conversation.
+## Instructions
 
-## When to Use
+Call the `run_js` tool using `index.html` and a JSON string for `data` with the following fields:
+- **query**: Required. The search query. Extract the key topic or entity from the user's question. Use broad terms for better results (e.g., "2026 Olympics" not "who won the 2026 Olympics 100m dash").
+- **lang**: Optional. A 2-letter language code (default: "en"). Use standard codes: "en" (English), "es" (Spanish), "zh" (Chinese), "fr" (French), "de" (German), "ja" (Japanese), "ko" (Korean).
 
-- Landscape awareness: understanding what exists in a problem space
-- Search before building: checking if a built-in or standard solution exists
-- Competitive research: understanding conventional wisdom
-- Fact-checking: verifying claims about markets, technologies, or trends
-
-## How to Use
-
-Call `run_js` with the `scripts/index.html` script. Pass a search query as the input.
-
-**Privacy rule:** When searching on behalf of a user's idea, use **generalized category
-terms** — never the user's specific product name, proprietary concept, or stealth idea.
-
-Example: search "task management app landscape 2026" not "SuperTodo AI-powered task killer"
-
-## Interpreting Results
-
-After receiving search results, synthesize using the three-layer framework:
-
-- **Layer 1 (Tried-and-true):** What does everyone already know about this space?
-- **Layer 2 (Current discourse):** What are the search results saying right now?
-- **Layer 3 (First principles):** Given what you know, is there a reason the conventional approach is wrong?
-
-If Layer 3 reasoning reveals a genuine insight, name it:
-"EUREKA: Everyone does X because they assume [assumption]. But [evidence] suggests
-that's wrong here. This means [implication]."
+**Constraints:**
+- Provide a concise summary (1-3 sentences) based on the search results. Always end with a complete sentence.
+- Your response MUST be in the SAME language as the user's original prompt.
+- If the exact answer isn't found, briefly state this, then share the most relevant information that was found.
+- For time-sensitive queries, include the year in the search (e.g., "Olympics 2026"). Default to the current year if omitted.

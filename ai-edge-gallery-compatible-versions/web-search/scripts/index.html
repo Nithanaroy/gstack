@@ -1,131 +1,132 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Web Search</title>
-</head>
-<body>
-  <script>
-    // Web Search via DuckDuckGo Instant Answer API
-    // Input: search query string
-    // Output: summarized search results
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Web Search</title>
+  </head>
+  <body>
+    <script>
+      /**
+       * Search DuckDuckGo for instant answers and Wikipedia for detailed summaries.
+       * Falls back gracefully: DDG instant answer -> Wikipedia -> error message.
+       *
+       * @param {string} query - The search query.
+       * @param {string} lang - Two-letter language code (default: "en").
+       */
+      async function searchWeb(query, lang) {
+        let results = [];
 
-    async function search(query) {
-      if (!query || query.trim() === '') {
-        return JSON.stringify({ error: 'No search query provided' });
-      }
-
-      const encoded = encodeURIComponent(query.trim());
-
-      try {
-        // DuckDuckGo Instant Answer API (no API key required)
-        const ddgUrl = `https://api.duckduckgo.com/?q=${encoded}&format=json&no_html=1&skip_disambig=1`;
-        const ddgResponse = await fetch(ddgUrl);
-        const ddgData = await ddgResponse.json();
-
-        const results = [];
-
-        // Abstract (main answer)
-        if (ddgData.Abstract) {
-          results.push({
-            title: ddgData.Heading || 'Summary',
-            text: ddgData.Abstract,
-            source: ddgData.AbstractSource || 'DuckDuckGo',
-            url: ddgData.AbstractURL || ''
+        // Strategy 1: DuckDuckGo Instant Answer API (no key required)
+        try {
+          const ddgParams = new URLSearchParams({
+            q: query,
+            format: "json",
+            no_html: "1",
+            skip_disambig: "1",
           });
+          const ddgRes = await fetch(
+            `https://api.duckduckgo.com/?${ddgParams.toString()}`
+          );
+          if (ddgRes.ok) {
+            const ddg = await ddgRes.json();
+            if (ddg.Abstract) {
+              results.push(
+                `--- ${ddg.Heading || "Summary"} (${ddg.AbstractSource || "DuckDuckGo"}) ---\n${ddg.Abstract}`
+              );
+            }
+            if (ddg.Answer) {
+              results.push(`--- Answer ---\n${ddg.Answer}`);
+            }
+            if (ddg.RelatedTopics) {
+              const topics = ddg.RelatedTopics
+                .filter((t) => t.Text)
+                .slice(0, 5)
+                .map((t) => t.Text);
+              if (topics.length > 0) {
+                results.push(
+                  `--- Related Topics ---\n${topics.join("\n")}`
+                );
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("DuckDuckGo search failed:", e);
         }
 
-        // Related topics
-        if (ddgData.RelatedTopics && ddgData.RelatedTopics.length > 0) {
-          for (const topic of ddgData.RelatedTopics.slice(0, 5)) {
-            if (topic.Text) {
-              results.push({
-                title: topic.FirstURL ? topic.FirstURL.split('/').pop().replace(/_/g, ' ') : 'Related',
-                text: topic.Text,
-                url: topic.FirstURL || ''
-              });
-            }
-            // Handle sub-topics (grouped results)
-            if (topic.Topics) {
-              for (const sub of topic.Topics.slice(0, 3)) {
-                if (sub.Text) {
-                  results.push({
-                    title: sub.FirstURL ? sub.FirstURL.split('/').pop().replace(/_/g, ' ') : 'Related',
-                    text: sub.Text,
-                    url: sub.FirstURL || ''
-                  });
+        // Strategy 2: Wikipedia API (reliable fallback)
+        try {
+          const wikiLang = lang || "en";
+          const baseUrl = `https://${wikiLang}.wikipedia.org/w/api.php`;
+          const searchParams = new URLSearchParams({
+            action: "query",
+            format: "json",
+            generator: "search",
+            gsrsearch: query,
+            gsrlimit: "3",
+            prop: "extracts",
+            explaintext: "1",
+            exintro: "1",
+            origin: "*",
+          });
+          const wikiRes = await fetch(
+            `${baseUrl}?${searchParams.toString()}`
+          );
+          if (wikiRes.ok) {
+            const wikiData = await wikiRes.json();
+            if (wikiData.query && wikiData.query.pages) {
+              const pages = Object.values(wikiData.query.pages);
+              for (const page of pages) {
+                if (page.extract) {
+                  results.push(
+                    `--- ${page.title} (Wikipedia) ---\n${page.extract}`
+                  );
                 }
               }
             }
           }
-        }
-
-        // Definition
-        if (ddgData.Definition) {
-          results.push({
-            title: 'Definition',
-            text: ddgData.Definition,
-            source: ddgData.DefinitionSource || '',
-            url: ddgData.DefinitionURL || ''
-          });
-        }
-
-        // Answer (for factual queries)
-        if (ddgData.Answer) {
-          results.push({
-            title: 'Answer',
-            text: ddgData.Answer,
-            source: 'DuckDuckGo'
-          });
+        } catch (e) {
+          console.warn("Wikipedia search failed:", e);
         }
 
         if (results.length === 0) {
-          // Try Wikipedia as fallback
-          const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encoded}`;
-          try {
-            const wikiResponse = await fetch(wikiUrl);
-            if (wikiResponse.ok) {
-              const wikiData = await wikiResponse.json();
-              if (wikiData.extract) {
-                results.push({
-                  title: wikiData.title || query,
-                  text: wikiData.extract,
-                  source: 'Wikipedia',
-                  url: wikiData.content_urls?.desktop?.page || ''
-                });
-              }
-            }
-          } catch (e) {
-            // Wikipedia fallback failed silently
-          }
+          return {
+            error: `No results found for '${query}'. Try rephrasing with broader terms.`,
+          };
         }
 
-        if (results.length === 0) {
-          return JSON.stringify({
-            query: query,
-            message: 'No results found. Try rephrasing the query or using more specific terms.'
-          });
+        // Cap total output to preserve context window
+        let combined = results.join("\n\n");
+        const maxChars = 5000;
+        if (combined.length > maxChars) {
+          combined =
+            combined.substring(0, maxChars) +
+            "\n\n... [TRUNCATED TO SAVE CONTEXT]";
         }
 
-        return JSON.stringify({
-          query: query,
-          result_count: results.length,
-          results: results
-        });
-
-      } catch (error) {
-        return JSON.stringify({
-          error: `Search failed: ${error.message}`,
-          query: query
-        });
+        return { query: query, result: combined };
       }
-    }
 
-    // The input variable is provided by the run_js runtime
-    if (typeof input !== 'undefined') {
-      search(input).then(result => {
-        document.body.innerText = result;
-      });
-    }
-  </script>
-</body>
+      window["ai_edge_gallery_get_result"] = async (data) => {
+        try {
+          const jsonData = JSON.parse(data);
+          if (!jsonData.query) {
+            return JSON.stringify({
+              error: "No query provided. Pass a 'query' field.",
+            });
+          }
+          const response = await searchWeb(
+            jsonData.query,
+            jsonData.lang || "en"
+          );
+          return JSON.stringify(response);
+        } catch (e) {
+          console.error(e);
+          return JSON.stringify({
+            error: `Search failed: ${e.message}`,
+          });
+        }
+      };
+    </script>
+  </body>
 </html>
